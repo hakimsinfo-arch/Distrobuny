@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Distro Buny @VERSION@ — User Guide</title>
+<style>
+  body { font-family: "DejaVu Sans", "Liberation Sans", Arial, sans-serif; font-size: 10.5pt; color: #1d2b1d; line-height: 1.45; }
+  h1 { font-size: 22pt; color: #3c7a2a; margin-bottom: 2pt; }
+  h2 { font-size: 14pt; color: #3c7a2a; margin-top: 16pt; border-bottom: 1px solid #b9d7a8; }
+  h3 { font-size: 11.5pt; margin-top: 10pt; }
+  .sub { color: #5a6b5a; font-size: 11pt; margin-top: 0; }
+  table { border-collapse: collapse; width: 100%; margin: 6pt 0; }
+  th, td { border: 1px solid #c9dcc0; padding: 4pt 6pt; vertical-align: top; text-align: left; }
+  th { background: #eaf4e3; }
+  code { font-family: "DejaVu Sans Mono", monospace; font-size: 9.5pt; background: #f2f6ef; }
+  img { border: 1px solid #c9dcc0; }
+</style>
+</head>
+<body>
+
+<h1>Distro Buny @VERSION@</h1>
+<p class="sub">User guide</p>
+
+<p>Distro Buny turns one USB stick into a boot menu for many Linux systems.
+You copy ordinary <code>.iso</code> files onto the stick. When a computer starts
+from the stick, Distro Buny shows them as cards, and you start the one you
+choose. Your ISO files stay ordinary files that you can add, rename or delete
+from Windows, macOS or Linux at any time.</p>
+
+<h2>1. What you need</h2>
+<ul>
+  <li>A USB stick of <b>4 GB or more</b>. Writing Distro Buny erases everything on it.</li>
+  <li>A 64-bit PC with UEFI firmware (practically every PC made since about 2012).
+      Old BIOS-only PCs, Apple computers with Apple silicon and ARM computers are not supported.</li>
+  <li>The file <code>@IMAGE_XZ@</code> from this folder, and a program to write it:
+      <b>balenaEtcher</b> (Windows, macOS, Linux) or <b>Rufus</b> (Windows).</li>
+</ul>
+
+<h2>2. Write Distro Buny to the stick</h2>
+<p>The file is a complete disk image. Write it to the stick as a whole ("DD mode").
+Do not copy the file onto the stick, and do not use a tool's "ISO mode".</p>
+<h3>balenaEtcher</h3>
+<ol>
+  <li><i>Flash from file</i>: choose <code>@IMAGE_XZ@</code> (no need to unpack it).</li>
+  <li><i>Select target</i>: choose your USB stick. Check its name and size carefully.</li>
+  <li><i>Flash!</i> Etcher writes the image and checks it.</li>
+</ol>
+<h3>Rufus (Windows)</h3>
+<ol>
+  <li><i>Device</i>: choose the USB stick.</li>
+  <li><i>Boot selection</i>: <i>SELECT</i>, then choose the <code>.img.xz</code> file. Rufus writes disk images in
+      DD mode by itself. If it ever asks, choose <i>DD Image</i> mode.</li>
+  <li><i>START</i>, and confirm that the stick will be erased.</li>
+</ol>
+<h3>Linux terminal</h3>
+<p>Find the stick's name with <code>lsblk</code> (for example <code>sdb</code>). The wrong name destroys that disk's data.</p>
+<p><code>xz -dc @IMAGE_XZ@ | sudo dd of=/dev/sdX bs=4M conv=fsync status=progress</code></p>
+<p>If Windows offers to format the stick after writing, choose <b>Cancel</b>.</p>
+<p>Optional: check the download against <code>SHA256SUMS</code> in this folder
+(<code>Get-FileHash</code> in Windows PowerShell, <code>shasum -a 256</code> on macOS,
+<code>sha256sum -c --ignore-missing SHA256SUMS</code> on Linux).</p>
+
+<h2>3. Start a computer from the stick</h2>
+<ol>
+  <li>Plug in the stick and switch the computer on.</li>
+  <li>Open its boot menu while it starts (often <b>F12</b>, <b>F11</b>, <b>F10</b>, <b>F8</b> or <b>Esc</b>)
+      and choose the USB stick (its UEFI entry).</li>
+</ol>
+<h3>Secure Boot: on or off?</h3>
+<p>Distro Buny starts with Secure Boot <b>on or off</b>. You do not have to change anything to start the
+stick itself. Secure Boot only decides which systems the menu can start:</p>
+<ul>
+  <li><b>Secure Boot off:</b> every supported system starts. This is the simplest choice if you use many
+      different distributions.</li>
+  <li><b>Secure Boot on:</b> only systems whose kernel is signed with a key Distro Buny trusts can start.
+      In practice that is Ubuntu and its flavours, Linux Mint and Zorin OS. All others are marked
+      <b>Needs Secure Boot off</b>, and the menu can restart the computer into its firmware settings
+      so you can switch Secure Boot off.</li>
+</ul>
+<p>Even distributions that support Secure Boot from their own DVD (for example Fedora, openSUSE,
+AlmaLinux or Kali) need Secure Boot off when they are started through Distro Buny @VERSION@, because their
+kernels are signed with their own keys.</p>
+<p>The menu works with the keyboard (arrow keys, <b>Enter</b> to open, <b>Esc</b> to go back,
+<b>/</b> to search) and with a mouse or touchpad.</p>
+
+<h2>4. Use the whole stick</h2>
+<p>Etcher, Rufus and <code>dd</code> copy the 3.5 GB image as it is. On a bigger stick
+the DISTROBUNY drive therefore first holds about 3 GB. Distro Buny fixes this
+itself the first time you start from the stick:</p>
+<img src="../screenshots/menu-expand-drive.png" width="600" height="375" alt="The menu offers to use the whole drive">
+<ol>
+  <li>On the menu's home page choose <b>Use the whole drive</b>.</li>
+  <li>A dialog shows the current and the new size. Choose <b>Expand DISTROBUNY</b>.
+      The highlighted button starts on <i>Cancel</i>, so an accidental Enter changes nothing.</li>
+  <li>Wait a few seconds until the menu says <i>The drive now uses all of its space</i>.
+      Do not unplug the stick or switch the computer off before then.</li>
+</ol>
+<p>Nothing is erased and no file is moved. If the power fails in the middle, start
+from the stick again: Distro Buny finishes the job before the menu appears (or
+offers it again if nothing had changed yet). You can expand before or after adding
+ISO files. The drive grows to at most 2 TiB.</p>
+
+<h2>5. Add your ISO files</h2>
+<ol>
+  <li>Plug the stick into any Windows, macOS or Linux computer. It appears as a drive named <b>DISTROBUNY</b>.</li>
+  <li>Copy <code>.iso</code> files into its <b>Desktop</b> or <b>Servers</b> folder, or into folders you
+      create inside them. Every folder becomes a category in the menu.</li>
+  <li>Eject the stick safely before you unplug it. Do not change the hidden <code>.distrobuny</code> folder.</li>
+</ol>
+<p>New images appear in the menu the next time you start from the stick.
+Download ISO files only from each distribution's official website.</p>
+<img src="../screenshots/menu-home.png" width="600" height="375" alt="The menu with ISO files">
+
+<h2>6. Start a system</h2>
+<p>Open a category, choose an image, and press <b>Start</b>. The image page shows the
+distribution, its version, how it will be started, and whether it was tested.
+<b>Boot options</b> lets you choose another entry of the image (for example an
+installer instead of the live system) and <b>Safe graphics</b> for graphics cards
+that show a black screen.</p>
+<img src="../screenshots/menu-detail.png" width="600" height="375" alt="An image's page">
+<p>Every card shows a badge:</p>
+<table>
+  <tr><th>Badge</th><th>Meaning</th></tr>
+  <tr><td><b>Verified</b></td><td>This exact image booted in the Distro Buny test lab.</td></tr>
+  <tr><td><b>Ready</b></td><td>Distro Buny knows this kind of system and how to start it.</td></tr>
+  <tr><td><b>Best effort</b></td><td>A Linux family Distro Buny does not know yet. It tries the image's own boot
+      entry and asks you first. If the system stops with an error, simply restart the computer.</td></tr>
+  <tr><td><b>Needs Secure Boot off</b></td><td>Secure Boot is on and Distro Buny cannot start this system's kernel.
+      Switch Secure Boot off in the firmware settings to start it.</td></tr>
+  <tr><td><b>Erases a disk</b></td><td>The image installs itself or a system automatically, possibly without asking.
+      Distro Buny asks you to confirm first.</td></tr>
+  <tr><td><b>Damaged</b></td><td>The file is not a readable ISO image, usually an incomplete copy. Copy it again.</td></tr>
+</table>
+
+<h2>7. Which distributions work</h2>
+<p>Distro Buny recognises a system by how it starts, so new releases of these
+distributions keep working. Tested in the lab (virtual machines) with version @VERSION@:</p>
+<table>
+  <tr><th>Distribution</th><th>Tested editions</th><th>Secure Boot on?</th></tr>
+  <tr><td><b>Ubuntu</b></td><td>Desktop, Server, Kubuntu, Xubuntu, Lubuntu, Ubuntu MATE, Budgie, Unity, Cinnamon, Kylin, Studio, Edubuntu</td><td>yes</td></tr>
+  <tr><td><b>Linux Mint</b>, <b>Zorin OS</b></td><td>Mint Cinnamon and Xfce, Zorin OS Core</td><td>yes</td></tr>
+  <tr><td><b>Pop!_OS</b></td><td>standard, NVIDIA</td><td>no</td></tr>
+  <tr><td><b>Debian</b></td><td>netinst installer (graphical and text)</td><td>no</td></tr>
+  <tr><td><b>Kali Linux</b>, <b>Parrot OS</b></td><td>Kali live, Parrot Home</td><td>no</td></tr>
+  <tr><td><b>MX Linux</b>, <b>antiX</b></td><td>MX Xfce, antiX full</td><td>no</td></tr>
+  <tr><td><b>Arch Linux</b>, EndeavourOS, CachyOS, Omarchy, <b>BlackArch</b>, Manjaro</td><td>installers and live images</td><td>no</td></tr>
+  <tr><td><b>Fedora</b>, Bazzite, Nobara</td><td>Workstation, KDE, Server, IoT, Silverblue, Kinoite, Atomic desktops; Bazzite (also NVIDIA)</td><td>no</td></tr>
+  <tr><td><b>AlmaLinux</b>, <b>CentOS Stream</b></td><td>installer (boot) images</td><td>no</td></tr>
+  <tr><td><b>openSUSE</b></td><td>Leap 16, Tumbleweed, MicroOS, Leap Micro</td><td>no</td></tr>
+  <tr><td><b>Alpine Linux</b></td><td>standard (started as "Best effort")</td><td>no</td></tr>
+  <tr><td><b>Slackware</b></td><td>installer DVD (see below)</td><td>no</td></tr>
+  <tr><td>Void, Gentoo, NixOS, GNU Guix</td><td>live and installer images</td><td>no</td></tr>
+</table>
+<p><b>Should also work</b> (same start-up method as tested images, not tested themselves):
+elementary OS, Linux Lite, KDE neon, Debian live and DVD images, Kali's installer ISO, Tails, Clonezilla, GParted Live,
+SystemRescue, Garuda, Rocky Linux, Red Hat Enterprise Linux, Fedora Spins.</p>
+<p><b>Slackware:</b> the installer starts normally. When <i>setup</i> asks for the source, choose
+<i>Install from a Slackware CD or DVD</i>, then <i>manual</i> and <i>custom</i>, and type
+<code>/dev/loop200</code> (Distro Buny's virtual DVD). The image's page in the menu says the same.</p>
+<p><b>Do not work:</b> Qubes OS; Windows, BSD, 32-bit and ARM images.</p>
+
+<h2>8. Safety</h2>
+<ul>
+  <li>Distro Buny itself never writes to the computer's own disks. It reads the ISO files read-only and
+      changes only its own stick (its settings, and growing DISTROBUNY when you ask).</li>
+  <li>An <b>installer</b> you start can erase disks, as it would from its own DVD. Check the target disk
+      carefully before you confirm an installation.</li>
+  <li>Images that install by themselves or without asking are marked <b>Erases a disk</b> and need an extra
+      confirmation. The safe choice, <i>Cancel</i>, is always selected first.</li>
+</ul>
+
+<h2>9. If something does not work</h2>
+<table>
+  <tr><th>Problem</th><th>What to try</th></tr>
+  <tr><td>The computer does not offer the stick</td><td>Enable USB/UEFI boot in the firmware settings, try another USB port,
+      or switch off "CSM / Legacy only" mode.</td></tr>
+  <tr><td>"Secure Boot blocked this system"</td><td>Choose <i>Restart into firmware settings</i> and switch Secure Boot off,
+      or use a distribution signed by Canonical (Ubuntu and its flavours, Linux Mint, Zorin OS).</td></tr>
+  <tr><td>Black screen after starting a system</td><td><i>Boot options</i> → <i>Safe graphics</i>.</td></tr>
+  <tr><td>A new ISO shows <b>Damaged</b></td><td>The copy is incomplete: copy it again and eject the stick properly.</td></tr>
+  <tr><td>"The file is fragmented"</td><td>Copy the ISO again (a fresh copy is usually in one piece) or free some space first.</td></tr>
+  <tr><td>DISTROBUNY shows only 3 GB</td><td>Start from the stick and choose <i>Use the whole drive</i> (section 4).</td></tr>
+  <tr><td>Anything else</td><td>Press <b>Esc</b> while the stick starts and choose <i>Distro Buny (diagnostic mode)</i>;
+      the menu's log page lists recent events.</td></tr>
+</table>
+
+<h2>10. Limits of version @VERSION@</h2>
+<ul>
+  <li>UEFI 64-bit PCs only; no legacy BIOS, no 32-bit or ARM systems; no Windows ISOs.</li>
+  <li>With Secure Boot on, only the Ubuntu family (Ubuntu, its flavours, Linux Mint, Zorin OS) can be
+      started; switch Secure Boot off for everything else.</li>
+  <li>Distro Buny @VERSION@ was tested in virtual machines, not yet on a wide range of real computers.</li>
+</ul>
+
+<p class="sub">Distro Buny @VERSION@ · image SHA-256 @IMAGE_SHA@ · free software under the GNU GPL,
+version 3 or later; see the folder "Licenses and source code".</p>
+
+</body>
+</html>

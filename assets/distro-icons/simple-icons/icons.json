@@ -1,0 +1,250 @@
+{
+ "almalinux": {
+  "guidelines": "https://almalinux.org/p/the-almalinux-os-trademark-usage-policy/",
+  "hex": "000000",
+  "license": null,
+  "source": "https://almalinux.org",
+  "title": "AlmaLinux"
+ },
+ "alpinelinux": {
+  "guidelines": null,
+  "hex": "0D597F",
+  "license": null,
+  "source": "https://alpinelinux.org",
+  "title": "Alpine Linux"
+ },
+ "archlinux": {
+  "guidelines": "https://wiki.archlinux.org/index.php/DeveloperWiki:TrademarkPolicy#Logo_Usage_Guidelines",
+  "hex": "1793D1",
+  "license": null,
+  "source": "https://www.archlinux.org/art",
+  "title": "Arch Linux"
+ },
+ "artixlinux": {
+  "guidelines": null,
+  "hex": "10A0CC",
+  "license": null,
+  "source": "https://gitea.artixlinux.org/artix/artwork/src/commit/256432e3d06b3e9024bfd6912768e80281ea3746/icons/logo-gray.svg",
+  "title": "Artix Linux"
+ },
+ "cachyos": {
+  "guidelines": null,
+  "hex": "00AA88",
+  "license": null,
+  "source": "https://commons.wikimedia.org/wiki/File:CachyOS_Logo.svg",
+  "title": "CachyOS"
+ },
+ "centos": {
+  "guidelines": null,
+  "hex": "262577",
+  "license": null,
+  "source": "https://wiki.centos.org/ArtWork/Brand/Logo",
+  "title": "CentOS"
+ },
+ "debian": {
+  "guidelines": "https://www.debian.org/logos/",
+  "hex": "A81D33",
+  "license": {
+   "type": "CC-BY-SA-3.0"
+  },
+  "source": "https://www.debian.org/logos",
+  "title": "Debian"
+ },
+ "elementary": {
+  "guidelines": null,
+  "hex": "64BAFF",
+  "license": null,
+  "source": "https://elementary.io/brand",
+  "title": "elementary"
+ },
+ "endeavouros": {
+  "guidelines": null,
+  "hex": "7F7FFF",
+  "license": null,
+  "source": "https://github.com/endeavouros-team/endeavouros-theming/blob/135f642c980ed8d8fc212783eb478f96226f6c72/endeavouros-logo-text.svg",
+  "title": "EndeavourOS"
+ },
+ "fedora": {
+  "guidelines": "https://fedoraproject.org/wiki/Legal:Trademark_guidelines",
+  "hex": "51A2DA",
+  "license": {
+   "type": "custom",
+   "url": "https://docs.fedoraproject.org/en-US/project/brand/"
+  },
+  "source": "https://docs.fedoraproject.org/en-US/project/brand/",
+  "title": "Fedora"
+ },
+ "garudalinux": {
+  "guidelines": null,
+  "hex": "8839EF",
+  "license": {
+   "type": "GPL-3.0-only"
+  },
+  "source": "https://gitlab.com/garuda-linux/themes-and-settings/artwork/garuda-icons/-/blob/aab26625fe01479ebc3a252103fca723baca9e88/usr/share/icons/garuda/distributor-logo-garuda-outline.svg",
+  "title": "Garuda Linux"
+ },
+ "gentoo": {
+  "guidelines": "https://www.gentoo.org/inside-gentoo/foundation/name-logo-guidelines.html",
+  "hex": "54487A",
+  "license": {
+   "type": "CC-BY-SA-2.5"
+  },
+  "source": "https://wiki.gentoo.org/wiki/Project:Artwork/Artwork#Variations_of_the_.22g.22_logo",
+  "title": "Gentoo"
+ },
+ "kalilinux": {
+  "guidelines": "https://www.kali.org/docs/policy/trademark/",
+  "hex": "557C94",
+  "license": null,
+  "source": "https://www.kali.org/docs/policy/trademark/",
+  "title": "Kali Linux"
+ },
+ "kdeneon": {
+  "guidelines": null,
+  "hex": "3DC08D",
+  "license": null,
+  "source": "https://community.kde.org/Neon",
+  "title": "KDE neon"
+ },
+ "kubuntu": {
+  "guidelines": null,
+  "hex": "0079C1",
+  "license": null,
+  "source": "https://kubuntu.org",
+  "title": "Kubuntu"
+ },
+ "linuxmint": {
+  "guidelines": null,
+  "hex": "86BE43",
+  "license": null,
+  "source": "https://github.com/linuxmint/brand-logo/blob/540ac3b08e987866d77a340f557f994c988ac2ae/ring-mono-green.svg",
+  "title": "Linux Mint"
+ },
+ "lubuntu": {
+  "guidelines": null,
+  "hex": "0068C8",
+  "license": null,
+  "source": "https://lubuntu.net",
+  "title": "Lubuntu"
+ },
+ "manjaro": {
+  "guidelines": null,
+  "hex": "35BFA4",
+  "license": null,
+  "source": "https://manjaro.org",
+  "title": "Manjaro"
+ },
+ "mxlinux": {
+  "guidelines": null,
+  "hex": "000000",
+  "license": {
+   "type": "GPL-3.0-only"
+  },
+  "source": "https://mxlinux.org/art/",
+  "title": "MX Linux"
+ },
+ "nixos": {
+  "guidelines": "https://brand.nixos.org/documents/nixos-branding-guide.pdf",
+  "hex": "5277C3",
+  "license": {
+   "type": "CC-BY-4.0"
+  },
+  "source": "https://brand.nixos.org/logos/nixos-logomark-black-flat-minimal.svg",
+  "title": "NixOS"
+ },
+ "omarchy": {
+  "guidelines": null,
+  "hex": "9ECE6A",
+  "license": {
+   "type": "MIT"
+  },
+  "source": "https://omarchy.org",
+  "title": "Omarchy"
+ },
+ "opensuse": {
+  "guidelines": "https://en.opensuse.org/Portal:Artwork",
+  "hex": "73BA25",
+  "license": null,
+  "source": "https://github.com/openSUSE/artwork/blob/33e94aa76837c09f03d1712705949b71a246a53b/logos/buttons/button-colour.svg",
+  "title": "openSUSE"
+ },
+ "parrotsecurity": {
+  "guidelines": null,
+  "hex": "15E0ED",
+  "license": null,
+  "source": "https://gitlab.com/parrotsec/project/documentation/-/blob/d1d426b9cb3ea0efd16a2b34056c1ebb21bb9af9/static/img/parrot-logo.svg",
+  "title": "Parrot Security"
+ },
+ "popos": {
+  "guidelines": null,
+  "hex": "48B9C7",
+  "license": null,
+  "source": "https://github.com/system76/brand/blob/7a31740b54f929b62a165baa61dfb0b5164261e8/Pop_OS%20branding/Pop_icon.svg",
+  "title": "Pop!_OS"
+ },
+ "rockylinux": {
+  "guidelines": null,
+  "hex": "10B981",
+  "license": {
+   "type": "CC-BY-SA-4.0"
+  },
+  "source": "https://github.com/rocky-linux/branding/blob/94e97dd30b87d909cc4f6a6838a2926f77f9ac47/logo/src/icon-black.svg",
+  "title": "Rocky Linux"
+ },
+ "slackware": {
+  "guidelines": null,
+  "hex": "000000",
+  "license": null,
+  "source": "https://en.wikipedia.org/wiki/Slackware",
+  "title": "Slackware"
+ },
+ "solus": {
+  "guidelines": null,
+  "hex": "5294E2",
+  "license": null,
+  "source": "https://getsol.us/branding/",
+  "title": "Solus"
+ },
+ "tails": {
+  "guidelines": null,
+  "hex": "56347C",
+  "license": null,
+  "source": "https://tails.boum.org/contribute/how/promote/material/logo/",
+  "title": "Tails"
+ },
+ "ubuntu": {
+  "guidelines": "https://design.ubuntu.com/brand",
+  "hex": "E95420",
+  "license": null,
+  "source": "https://design.ubuntu.com/resources",
+  "title": "Ubuntu"
+ },
+ "ubuntumate": {
+  "guidelines": null,
+  "hex": "84A454",
+  "license": null,
+  "source": "https://ubuntu-mate.org",
+  "title": "Ubuntu MATE"
+ },
+ "voidlinux": {
+  "guidelines": null,
+  "hex": "478061",
+  "license": null,
+  "source": "https://alpha.de.repo.voidlinux.org/logos/void-dark2.svg",
+  "title": "Void Linux"
+ },
+ "xubuntu": {
+  "guidelines": null,
+  "hex": "0044AA",
+  "license": null,
+  "source": "https://commons.wikimedia.org/wiki/File:Xubuntu_Icon.svg",
+  "title": "Xubuntu"
+ },
+ "zorin": {
+  "guidelines": null,
+  "hex": "15A6F0",
+  "license": null,
+  "source": "https://zorin.com/press",
+  "title": "Zorin"
+ }
+}

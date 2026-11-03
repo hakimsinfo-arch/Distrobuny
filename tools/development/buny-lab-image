@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+"""buny-lab-image — build a lab image from ISO files in one or more folders.
+
+  buny-lab-image OUT.img ROOT [ROOT...]
+
+Every ROOT holds ISO files below Desktop/ and Servers/ (like "Iso layout" or
+build/test-isos).  They are linked (not copied) into one collection next to
+OUT, and an image with the current boot partition and the growable layout is
+built from it, for tools/development/buny-test-matrix.  This is how the
+54-ISO image of the 1.0.1 compatibility runs was made.  The ISO folders are
+only read.  Lab images contain third-party ISOs: never publish them.
+"""
+from __future__ import annotations
+
+import shutil
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "source" / "python"))
+
+from distrobuny.build import image_build, pipeline  # noqa: E402
+
+
+def main() -> int:
+    if len(sys.argv) < 3:
+        print(__doc__)
+        return 2
+    out = Path(sys.argv[1]).resolve()
+    coll = out.parent / (out.stem + "-collection")
+    shutil.rmtree(coll, ignore_errors=True)
+    for root in (Path(r).resolve() for r in sys.argv[2:]):
+        for iso in sorted(root.rglob("*.iso")):
+            dest = coll / iso.relative_to(root)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            if not dest.exists():
+                dest.symlink_to(iso.resolve())
+    for d in ("Desktop", "Servers"):
+        (coll / d).mkdir(parents=True, exist_ok=True)
+    build_id = f"distrobuny-{pipeline.version()}-lab"
+    files = pipeline.volume_files(coll, build_id, "dev", None)
+    m = image_build.build_image(coll, out, build_id, esp_tree=pipeline.ESP_TREE, data_files=files, free_bytes=1 << 30,
+                                timestamp=1792713600, growable=True)
+    print(f"built {out} ({m['geometry']['total_bytes'] >> 30} GiB, {len(list(coll.rglob('*.iso')))} ISO files)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

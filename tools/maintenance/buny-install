@@ -1,0 +1,261 @@
+#!/usr/bin/env python3
+"""buny-install — put Distro Buny onto a USB drive.
+
+  buny-install list [--all]
+      Drives and whether each one may be used (and why not).
+
+  buny-install write --image IMG --target DRIVE [--confirm NAME]
+      Copy a built image (tools/build/buny-build image) onto a drive.
+
+  buny-install create --isos DIR --target DRIVE [--include REGEX]... [--confirm NAME]
+      Build Distro Buny directly on a drive from a folder of ISO files; the
+      data partition fills the whole drive.  No intermediate image is needed.
+
+DRIVE is a whole disk: sdb, /dev/sdb or a /dev/disk/by-id/... link.  Instead
+of --target, --target-file PATH --size SIZE writes into a regular file that
+stands in for a drive (for virtual machines and tests).
+
+Safety: the drive is never chosen automatically.  Drives holding the running
+system are always refused; drives with mounted or in-use file systems,
+write-protected or too-small drives and internal (non-USB/SD) disks are
+refused (the last one can be overridden with --allow-fixed-disk).  The drive
+is held exclusively from before the confirmation until the write ends, and
+you must type its name to confirm (or pass --confirm NAME).  Everything
+written is read back and compared unless --no-verify is given.
+"""
+from __future__ import annotations
+
+import argparse
+import os
+import re
+import secrets
+import sys
+import time
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "source" / "python"))
+
+from distrobuny.install import devices, writer  # noqa: E402
+from distrobuny.install.writer import InstallError  # noqa: E402
+from distrobuny.util import BuildError, human_size  # noqa: E402
+
+
+def say(msg: str = "") -> None:
+    print(msg, flush=True)
+
+
+_last_line = [0.0]
+
+
+def tty_out(text: str) -> None:
+    """Progress lines: redrawn in place on a terminal, every 10 s in logs."""
+    if sys.stdout.isatty():
+        sys.stdout.write(text)
+    elif text.strip():
+        now = time.time()
+        if now - _last_line[0] >= 10 or "100%" in text:
+            _last_line[0] = now
+            sys.stdout.write(text.strip("\r\n") + "\n")
+    sys.stdout.flush()
+
+
+def parse_size(text: str) -> int:
+    m = re.fullmatch(r"\s*(\d+(?:\.\d+)?)\s*([KMGT]?)(i?B?)\s*", text, re.I)
+    if not m:
+        raise SystemExit(f"buny-install: cannot parse size {text!r} (examples: 64G, 500M, 32GiB)")
+    mult = {"": 1, "K": 1 << 10, "M": 1 << 20, "G": 1 << 30, "T": 1 << 40}[m.group(2).upper()]
+    return int(float(m.group(1)) * mult) // 512 * 512
+
+
+def show_drive(d: devices.Drive) -> None:
+    say(f"  {d.path}  {d.description}")
+    if d.serial:
+        say(f"    serial {d.serial}")
+    for p in d.partitions:
+        say(f"    partition {p.name}  {human_size(p.size)}")
+    if not d.partitions:
+        say("    no partitions")
+    for w in d.warnings:
+        say(f"    warning: {w}")
+
+
+def cmd_list(args) -> int:
+    system = devices.System()
+    drives = system.drives(include_virtual=args.all)
+    system.assess(drives, allow_fixed=args.allow_fixed_disk)
+    if not drives:
+        say("no drives found")
+        return 0
+    for d in drives:
+        state = "usable" if d.eligible else "refused"
+        say(f"{d.name:10} {human_size(d.size):>10}  {d.transport.upper():7} {(d.vendor + ' ' + d.model).strip()[:34]:34} {state}")
+        for p in d.problems:
+            say(f"{'':12}- {p}")
+        for w in d.warnings:
+            say(f"{'':12}! {w}")
+    return 0
+
+
+def open_target(args, need: int) -> tuple[writer.Target, str | None]:
+    """Open the target; returns it and the name the user has to type (None for files)."""
+    if args.target_file:
+        path = Path(args.target_file).resolve()
+        for forbidden in args.protect:
+            f = Path(forbidden).resolve()
+            if path == f or f in path.parents:
+                raise InstallError(f"refusing to write {path}: it is (inside) {f}, which this install reads from")
+        size = parse_size(args.size) if args.size else need
+        if size < need:
+            raise InstallError(f"--size {human_size(size)} is smaller than the {human_size(need)} needed")
+        return writer.Target.open_file(path, size, args.overwrite_file), None
+    system = devices.System()
+    try:
+        name = system.resolve(args.target)
+    except LookupError as exc:
+        raise InstallError(str(exc)) from exc
+    d = system.drive(name)
+    system.assess([d], need_bytes=need, allow_fixed=args.allow_fixed_disk)
+    say("Target drive:")
+    show_drive(d)
+    if d.problems:
+        for p in d.problems:
+            say(f"    refused: {p}")
+        raise InstallError(f"{d.path} cannot be used")
+    t = writer.Target.open_device(d.path, d.devno, d.size)
+    # re-check now that we hold the drive: nothing may have changed meanwhile
+    again = system.drive(name)
+    devices.System().assess([again], need_bytes=need, allow_fixed=args.allow_fixed_disk)
+    if again.identity() != d.identity() or again.problems:
+        t.close(reread=False)
+        raise InstallError(f"{d.path} changed while it was being opened; nothing was written")
+    return t, name
+
+
+def confirm(args, name: str | None, what: str) -> None:
+    if name is None:
+        return  # regular files: nothing outside the given path is touched
+    say("")
+    say(f"ALL DATA ON /dev/{name} WILL BE ERASED and replaced by {what}.")
+    if args.confirm is not None:
+        if args.confirm != name:
+            raise InstallError(f"--confirm {args.confirm!r} does not match the drive name {name!r}; nothing was written")
+        return
+    if not sys.stdin.isatty():
+        raise InstallError("no terminal for confirmation: pass --confirm NAME to confirm non-interactively")
+    try:
+        answer = input(f"Type the drive name ({name}) to continue, anything else cancels: ").strip()
+    except EOFError:
+        answer = ""
+    if answer != name:
+        raise InstallError("cancelled; nothing was written")
+
+
+def run_plan(t: writer.Target, plan: writer.Plan, verify: bool) -> None:
+    try:
+        writer.write_plan(t, plan, tty_out)
+        if verify:
+            writer.verify_plan(t, plan, tty_out)
+    except KeyboardInterrupt:
+        say("")
+        try:
+            os.fsync(t.fd)
+        except OSError:
+            pass
+        raise InstallError("interrupted: the drive is incomplete and will not boot; run the install again")
+
+
+def cmd_write(args) -> int:
+    image = Path(args.image)
+    src = writer.SourceImage.open(image)
+    say(f"Image: {image} ({human_size(src.size)})")
+    args.protect = [str(image)]
+    t, name = open_target(args, src.size)
+    try:
+        plan, disk = writer.plan_from_image(src, t.size)
+        confirm(args, name, f"Distro Buny ({image.name})")
+        say(f"writing {human_size(plan.total)} to {t.path}")
+        run_plan(t, plan, not args.no_verify)
+    finally:
+        t.close()
+    esp = next(p for p in disk.partitions if p.name == "BUNY-EFI")
+    say(f"done: {t.path} now holds Distro Buny (ESP PARTUUID {esp.guid}).")
+    if t.size > src.size:
+        say(f"note: {human_size(t.size - src.size)} at the end of the drive is unallocated "
+            "(use 'buny-install create' to fill the whole drive).")
+    return 0
+
+
+def cmd_create(args) -> int:
+    from distrobuny.build import image_build, pipeline
+    from distrobuny.image import layout
+
+    iso_root = Path(args.isos)
+    if not iso_root.is_dir():
+        raise InstallError(f"{iso_root} is not a folder")
+    if not (pipeline.ESP_TREE / "EFI" / "BOOT" / "BOOTX64.EFI").exists():
+        raise InstallError("the boot chain has not been built yet (run: tools/build/buny-build esp)")
+    pats = list(args.include)
+    isos = image_build.collect_isos(iso_root)
+    flt = pipeline.include_filter(pats)
+    chosen = [p for r, p in isos if not flt or flt(r)]
+    need = sum(p.stat().st_size for p in chosen) + image_build.ESP_SIZE + (256 << 20)
+    say(f"ISO folder: {iso_root} ({len(chosen)} images, {human_size(sum(p.stat().st_size for p in chosen))})")
+    args.protect = [str(iso_root)]
+    t, name = open_target(args, need)
+    try:
+        build_id = f"distrobuny-{pipeline.version()}-{name or 'file'}-{secrets.token_hex(4)}"
+        data_files = pipeline.volume_files(iso_root, build_id, "full" if not pats else "custom", pats)
+        vol = image_build.plan_volume(iso_root, build_id, esp_tree=pipeline.ESP_TREE, data_files=data_files,
+                                      free_bytes=0, iso_filter=flt, disk_bytes=t.size)
+        disk, pieces, _ = layout.volume_pieces(vol.geo, build_id, vol.esp, vol.data)
+        plan = writer.plan_from_pieces(t.size, disk.partitions, pieces)
+        confirm(args, name, f"a new Distro Buny drive with {len(chosen)} ISO images")
+        say(f"writing {human_size(plan.total)} to {t.path}")
+        run_plan(t, plan, not args.no_verify)
+    finally:
+        t.close()
+    say(f"done: {t.path} now holds Distro Buny ({vol.describe()['data_fs']['uuid']}, "
+        f"{human_size(vol.geo.data_sectors * 512)} data partition).")
+    return 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(prog="buny-install", description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    lp = sub.add_parser("list", help="list drives and whether they can be used")
+    lp.add_argument("--all", action="store_true", help="include loop, RAM and other virtual devices")
+    lp.add_argument("--allow-fixed-disk", action="store_true")
+    for name in ("write", "create"):
+        p = sub.add_parser(name)
+        if name == "write":
+            p.add_argument("--image", required=True, help="Distro Buny image built by buny-build")
+        else:
+            p.add_argument("--isos", required=True, help="folder with ISO files (sub-folders become categories)")
+            p.add_argument("--include", action="append", default=[], metavar="REGEX",
+                           help="only images whose path matches (repeatable)")
+        g = p.add_mutually_exclusive_group(required=True)
+        g.add_argument("--target", metavar="DRIVE", help="whole drive: sdb, /dev/sdb, /dev/disk/by-id/...")
+        g.add_argument("--target-file", metavar="PATH", help="regular file standing in for a drive")
+        p.add_argument("--size", help="size of --target-file (e.g. 64G); default: just large enough")
+        p.add_argument("--overwrite-file", action="store_true", help="replace an existing --target-file")
+        p.add_argument("--confirm", metavar="NAME", help="confirm non-interactively by naming the drive (e.g. sdb)")
+        p.add_argument("--allow-fixed-disk", action="store_true",
+                       help="allow an internal (non-USB/SD) disk that is not part of the running system")
+        p.add_argument("--no-verify", action="store_true", help="skip reading everything back")
+    args = ap.parse_args()
+    try:
+        if args.cmd == "list":
+            return cmd_list(args)
+        return cmd_write(args) if args.cmd == "write" else cmd_create(args)
+    except (InstallError, BuildError) as exc:
+        print(f"buny-install: {exc}", file=sys.stderr)
+        return 1
+    except KeyboardInterrupt:
+        print("\nbuny-install: cancelled", file=sys.stderr)
+        return 130
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,91 @@
+#!/usr/bin/env python3
+"""buny-test-matrix — boot ISOs from a Distro Buny image in virtual machines.
+
+  buny-test-matrix --image output/images/distrobuny-<VERSION>-full.img [--filter REGEX] [--jobs 2]
+                   [--secure-boot] [--out tests/compatibility/runs/NAME]
+
+Writes per-image result.json, screenshots and serial logs, plus results.json
+and RESULTS.md summaries.  The image is never modified (VMs use snapshots).
+"""
+from __future__ import annotations
+
+import argparse
+import concurrent.futures as cf
+import json
+import re
+import subprocess
+import sys
+import time
+from dataclasses import asdict
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "source" / "python"))
+
+from distrobuny.qemu import matrix  # noqa: E402
+
+
+def catalog(image: Path) -> dict:
+    """The images to test: the catalog stored on the image itself, so subset
+    images (dev profile, buny-install with --include) are tested for exactly
+    what they contain.  Images without one fall back to scanning the ISO
+    collection with the same core library the runtime uses."""
+    bunyctl = ROOT / "build" / "bin" / "bunyctl"
+    stored = matrix.image_index(image, bunyctl)
+    if stored:
+        return stored
+    iso_root = ROOT / "Iso layout"
+    out = subprocess.run([bunyctl, "scan", "--json", "--rules", ROOT / "configuration/distributions/distributions.conf",
+                          iso_root], capture_output=True, check=True)
+    return json.loads(out.stdout)
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--image", type=Path, required=True)
+    ap.add_argument("--filter", default=None, help="regex on the ISO path")
+    ap.add_argument("--jobs", type=int, default=2)
+    ap.add_argument("--memory", type=int, default=4096)
+    ap.add_argument("--secure-boot", action="store_true")
+    ap.add_argument("--out", type=Path, default=None)
+    ap.add_argument("--settle", type=float, default=40,
+                    help="seconds to keep a passing system running before the final screenshot")
+    ap.add_argument("--lab-option", action="append", default=[], metavar="OPT",
+                    help="extra buny.* runtime option, e.g. buny.medium=dm (repeatable)")
+    args = ap.parse_args()
+    name = time.strftime("%Y%m%d-%H%M%S") + ("-sb" if args.secure_boot else "")
+    out = args.out or ROOT / "tests" / "compatibility" / "runs" / name
+    out.mkdir(parents=True, exist_ok=True)
+    entries = matrix.flatten(catalog(args.image))
+    if args.filter:
+        entries = [e for e in entries if re.search(args.filter, e["path"])]
+    print(f"testing {len(entries)} image(s), {args.jobs} at a time -> {out}", flush=True)
+    results = []
+    with cf.ThreadPoolExecutor(max_workers=args.jobs) as ex:
+        futs = {ex.submit(matrix.run_one, args.image, e, out, args.secure_boot, args.memory,
+                              extra_options=" ".join(args.lab_option), settle=args.settle): e for e in entries}
+        for f in cf.as_completed(futs):
+            e = futs[f]
+            try:
+                r = f.result()
+            except Exception as exc:  # harness failure: record it, never hide it
+                r = matrix.Result(path=e["path"], verdict="ERROR", reason=f"test harness error: {exc}")
+            results.append(r)
+            print(f"[{r.verdict:7}] {r.path}  ({r.seconds:.0f}s) {r.reason}", flush=True)
+            (out / "results.json").write_text(json.dumps([asdict(x) for x in sorted(results, key=lambda x: x.path)], indent=2) + "\n")
+    results.sort(key=lambda x: x.path)
+    lines = ["# Distro Buny compatibility run", "", f"- image: `{args.image.name}`", f"- Secure Boot: {'on' if args.secure_boot else 'off'}",
+             f"- finished: {time.strftime('%Y-%m-%d %H:%M:%S')}", "",
+             "| Verdict | Image | Adapter | Reason | Timings (s) |", "|---|---|---|---|---|"]
+    for r in results:
+        t = ", ".join(f"{k} {v}" for k, v in r.timings.items())
+        lines.append(f"| {r.verdict} | `{r.path}` | {r.adapter} | {r.reason.replace('|', '/')} | {t} |")
+    counts = {v: sum(1 for r in results if r.verdict == v) for v in ("PASS", "FAIL", "BLOCKED", "ERROR")}
+    lines += ["", "Totals: " + ", ".join(f"{k} {v}" for k, v in counts.items())]
+    (out / "RESULTS.md").write_text("\n".join(lines) + "\n")
+    print("Totals:", counts)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

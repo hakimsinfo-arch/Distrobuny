@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+"""buny-build — Distro Buny build pipeline.
+
+Usage:
+  buny-build doctor                         check build dependencies
+  buny-build image [options]                build a bootable disk image
+  buny-build refresh-esp --image IMG        rewrite only the boot partition of an image
+  buny-build runtime                        build the runtime kernel + initramfs
+  buny-build esp [--lab]                    assemble the EFI System Partition tree
+  buny-build test-tools                     unpack the pinned reference fsck.exfat/mtools for the tests
+  buny-build release [--contact ADDR]       output/release: the starter image for publishing
+
+See documentation/BUILD_INSTRUCTIONS.md for the full workflow.
+"""
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "source" / "python"))
+
+from distrobuny import util  # noqa: E402
+from distrobuny.build import pipeline  # noqa: E402
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(prog="buny-build", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    sub.add_parser("doctor", help="check build dependencies")
+
+    p = sub.add_parser("image", help="build a disk image")
+    p.add_argument("--profile", choices=["full", "dev", "lab", "starter"], default="dev",
+                   help="full: every ISO; dev: small ISOs for quick VM tests; lab: one ISO per family; "
+                        "starter: no ISOs, the 3.5 GiB public download (ignores --isos)")
+    p.add_argument("--isos", type=Path, default=ROOT / "Iso layout", help="ISO collection root")
+    p.add_argument("--out", type=Path, help="output image path (default: output/images/...)")
+    p.add_argument("--include", action="append", default=[], help="regex: only ISO paths matching (repeatable)")
+    p.add_argument("--free-gib", type=float, default=None, help="free space to leave on the data partition")
+    p.add_argument("--size-gib", type=float, default=None,
+                   help="exact image size; the data partition fills it (starter default: 3.5)")
+    p.add_argument("--no-runtime", action="store_true", help="build without the boot chain (data-only test image)")
+    p.add_argument("--build-id", help="override the build identifier")
+
+    sub.add_parser("runtime", help="build the runtime (signed kernel + initramfs)")
+    p = sub.add_parser("esp", help="assemble the ESP tree (shim, GRUB, runtime)")
+    p.add_argument("--lab", action="store_true", help="enable lab automation (serial console events)")
+
+    sub.add_parser("test-tools", help="unpack the pinned reference fsck.exfat/mtools used by the tests")
+
+    sub.add_parser("sources", help="download the third-party source packages (Launchpad) into build/third-party-sources")
+    p = sub.add_parser("release", help="assemble output/release from the starter image (refuses images with ISOs)")
+    p.add_argument("--image", type=Path, help="starter image (default: output/images/distrobuny-<version>-starter.img)")
+    p.add_argument("--out", type=Path, help="release folder (default: output/release)")
+    p.add_argument("--sources", type=Path, help="third-party source packages (default: build/third-party-sources)")
+    p = sub.add_parser("verify-release", help="check a release folder: checksums, documents, third-party source")
+    p.add_argument("folder", type=Path)
+    p = sub.add_parser("publish", help="copy output/release to an empty folder and verify the copy")
+    p.add_argument("--to", type=Path, required=True, dest="dest")
+
+    p = sub.add_parser("refresh-esp", help="rebuild the boot chain and rewrite the ESP of an existing image")
+    p.add_argument("--image", type=Path, required=True)
+    p.add_argument("--build-id", help="build identifier used for the image")
+
+    args = ap.parse_args()
+    try:
+        if args.cmd == "doctor":
+            return pipeline.doctor()
+        if args.cmd == "runtime":
+            from distrobuny.build import runtime
+            runtime.build_runtime()
+            return 0
+        if args.cmd == "esp":
+            from distrobuny.build import esp
+            esp.build_esp_tree(lab=args.lab)
+            return 0
+        if args.cmd == "image":
+            pipeline.build_disk_image(profile=args.profile, iso_root=args.isos, out=args.out, includes=args.include,
+                                      free_gib=args.free_gib, with_runtime=not args.no_runtime, build_id=args.build_id,
+                                      size_gib=args.size_gib)
+            return 0
+        if args.cmd == "test-tools":
+            from distrobuny.build import components
+            components.test_tools()
+            return 0
+        if args.cmd == "refresh-esp":
+            pipeline.refresh_image_esp(args.image, build_id=args.build_id)
+            return 0
+        if args.cmd == "sources":
+            from distrobuny.build import release
+            release.fetch_sources()
+            return 0
+        if args.cmd == "release":
+            from distrobuny.build import release
+            image = args.image or pipeline.OUTPUT / "images" / f"distrobuny-{pipeline.version()}-starter.img"
+            release.build_release(image, out=args.out, sources=args.sources)
+            return 0
+        if args.cmd == "verify-release":
+            from distrobuny.build import release
+            release.verify_release(args.folder)
+            util.info(f"{args.folder}: consistent")
+            return 0
+        if args.cmd == "publish":
+            from distrobuny.build import release
+            release.publish(release.RELEASE, args.dest)
+            return 0
+    except util.BuildError as exc:
+        util.error(str(exc))
+        return 1
+    except KeyboardInterrupt:
+        util.error("interrupted")
+        return 130
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

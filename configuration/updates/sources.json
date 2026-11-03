@@ -1,0 +1,154 @@
+{
+  "comment": [
+    "Trusted update sources for buny-update.  Every source names the vendor's official checksum list and the OpenPGP key",
+    "that signs it (or that signs the image itself).  Fingerprints are pinned: a signature from any other key is rejected.",
+    "Pinned fingerprints were cross-checked against the vendors' own documentation; see documentation/SECURITY.md.",
+    "Placeholders: {series} (discovered release series), {file} (image file name), {flavor}.",
+    "series.policy: 'track' keeps an LTS installation on LTS releases and an interim one on the newest release."
+  ],
+  "keys": {
+    "ubuntu-cdimage.asc": ["843938DF228D22F7B3742BC0D94AA3F0EFE21092"],
+    "debian-cd.asc": ["DF9B9C49EAA9298432589D76DA87E80D6294BE9B"],
+    "archlinux-releng.asc": ["3E80CA1A8B89F69CBA57D98A76A5EF9054449A5C"],
+    "linuxmint.asc": ["27DEB15644C6B3CF3BD7D291300F846BA25BAE09"],
+    "fedora.asc": ["36F612DCF27F7D1A48A835E4DBFCF71C6D9F90A6", "C6E7F081CF80E13146676E88829B606631645531",
+                   "4F50A6114CD5C6976A7F1179655A4B02F577861E", "D924B10D3E810DABDD8B56B596E7E91491211FCE"],
+    "opensuse.asc": ["AD485664E901B867051AB15F35A2F86E29B700A4"]
+  },
+  "templates": {
+    "ubuntu-flavor": {
+      "series": {"index": "https://cdimage.ubuntu.com/{flavor}/releases/", "regex": "href=\"(\\d{2}\\.\\d{2})/\"", "policy": "track"},
+      "checksums": "https://cdimage.ubuntu.com/{flavor}/releases/{series}/release/SHA256SUMS",
+      "signature": {"type": "detached", "url": "{checksums}.gpg", "key": "ubuntu-cdimage.asc"},
+      "download": "https://cdimage.ubuntu.com/{flavor}/releases/{series}/release/{file}"
+    }
+  },
+  "sources": [
+    {
+      "id": "ubuntu-desktop", "name": "Ubuntu Desktop",
+      "installed": "^ubuntu-(?P<version>\\d{2}\\.\\d{2}(?:\\.\\d+)?)-desktop-amd64\\.iso$",
+      "series": {"index": "https://releases.ubuntu.com/", "regex": "href=\"(\\d{2}\\.\\d{2})/\"", "policy": "track"},
+      "checksums": "https://releases.ubuntu.com/{series}/SHA256SUMS",
+      "pick": "^ubuntu-(?P<version>\\d{2}\\.\\d{2}(?:\\.\\d+)?)-desktop-amd64\\.iso$",
+      "signature": {"type": "detached", "url": "{checksums}.gpg", "key": "ubuntu-cdimage.asc"},
+      "download": "https://releases.ubuntu.com/{series}/{file}"
+    },
+    {
+      "id": "ubuntu-server", "name": "Ubuntu Server",
+      "installed": "^ubuntu-(?P<version>\\d{2}\\.\\d{2}(?:\\.\\d+)?)-live-server-amd64\\.iso$",
+      "series": {"index": "https://releases.ubuntu.com/", "regex": "href=\"(\\d{2}\\.\\d{2})/\"", "policy": "track"},
+      "checksums": "https://releases.ubuntu.com/{series}/SHA256SUMS",
+      "pick": "^ubuntu-(?P<version>\\d{2}\\.\\d{2}(?:\\.\\d+)?)-live-server-amd64\\.iso$",
+      "signature": {"type": "detached", "url": "{checksums}.gpg", "key": "ubuntu-cdimage.asc"},
+      "download": "https://releases.ubuntu.com/{series}/{file}"
+    },
+    {"id": "kubuntu", "name": "Kubuntu", "template": "ubuntu-flavor", "flavor": "kubuntu",
+     "installed": "^kubuntu-(?P<version>\\d{2}\\.\\d{2}(?:\\.\\d+)?)-desktop-amd64\\.iso$"},
+    {"id": "xubuntu", "name": "Xubuntu", "template": "ubuntu-flavor", "flavor": "xubuntu",
+     "installed": "^xubuntu-(?P<version>\\d{2}\\.\\d{2}(?:\\.\\d+)?)-desktop-amd64\\.iso$"},
+    {"id": "lubuntu", "name": "Lubuntu", "template": "ubuntu-flavor", "flavor": "lubuntu",
+     "installed": "^lubuntu-(?P<version>\\d{2}\\.\\d{2}(?:\\.\\d+)?)-desktop-amd64\\.iso$"},
+    {"id": "ubuntu-mate", "name": "Ubuntu MATE", "template": "ubuntu-flavor", "flavor": "ubuntu-mate",
+     "installed": "^ubuntu-mate-(?P<version>\\d{2}\\.\\d{2}(?:\\.\\d+)?)-desktop-amd64\\.iso$"},
+    {"id": "ubuntu-budgie", "name": "Ubuntu Budgie", "template": "ubuntu-flavor", "flavor": "ubuntu-budgie",
+     "installed": "^ubuntu-budgie-(?P<version>\\d{2}\\.\\d{2}(?:\\.\\d+)?)-desktop-amd64\\.iso$"},
+    {"id": "ubuntustudio", "name": "Ubuntu Studio", "template": "ubuntu-flavor", "flavor": "ubuntustudio",
+     "installed": "^ubuntustudio-(?P<version>\\d{2}\\.\\d{2}(?:\\.\\d+)?)-desktop-amd64\\.iso$"},
+    {"id": "ubuntucinnamon", "name": "Ubuntu Cinnamon", "template": "ubuntu-flavor", "flavor": "ubuntucinnamon",
+     "installed": "^ubuntucinnamon-(?P<version>\\d{2}\\.\\d{2}(?:\\.\\d+)?)-desktop-amd64\\.iso$"},
+    {"id": "edubuntu", "name": "Edubuntu", "template": "ubuntu-flavor", "flavor": "edubuntu",
+     "installed": "^edubuntu-(?P<version>\\d{2}\\.\\d{2}(?:\\.\\d+)?)-desktop-amd64\\.iso$"},
+    {"id": "ubuntukylin", "name": "Ubuntu Kylin", "template": "ubuntu-flavor", "flavor": "ubuntukylin",
+     "installed": "^ubuntukylin-(?P<version>\\d{2}\\.\\d{2}(?:\\.\\d+)?)-desktop-amd64\\.iso$"},
+    {"id": "ubuntu-unity", "name": "Ubuntu Unity", "template": "ubuntu-flavor", "flavor": "ubuntu-unity",
+     "installed": "^ubuntu-unity-(?P<version>\\d{2}\\.\\d{2}(?:\\.\\d+)?)-desktop-amd64\\.iso$"},
+    {
+      "id": "debian-netinst", "name": "Debian (netinst)",
+      "installed": "^debian-(?P<version>\\d+\\.\\d+\\.\\d+)-amd64-netinst\\.iso$",
+      "checksums": "https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/SHA512SUMS",
+      "pick": "^debian-(?P<version>\\d+\\.\\d+\\.\\d+)-amd64-netinst\\.iso$",
+      "signature": {"type": "detached", "url": "{checksums}.sign", "key": "debian-cd.asc"},
+      "download": "https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/{file}"
+    },
+    {
+      "id": "archlinux", "name": "Arch Linux",
+      "installed": "^archlinux-(?:(?P<version>\\d{4}\\.\\d{2}\\.\\d{2})-)?x86_64\\.iso$",
+      "installed_version_from": "metadata",
+      "checksums": "https://archlinux.org/iso/latest/sha256sums.txt",
+      "pick": "^archlinux-(?P<version>\\d{4}\\.\\d{2}\\.\\d{2})-x86_64\\.iso$",
+      "signature": {"type": "image-detached", "url": "https://archlinux.org/iso/latest/{file}.sig", "key": "archlinux-releng.asc"},
+      "download": "https://geo.mirror.pkgbuild.com/iso/latest/{file}",
+      "note": "Arch signs the image itself; the checksum list is fetched over HTTPS and the image signature is verified after download."
+    },
+    {
+      "id": "linuxmint", "name": "Linux Mint",
+      "installed": "^linuxmint-(?P<version>\\d+\\.\\d+)-(?P<edition>[a-z]+)-64bit\\.iso$",
+      "series": {"index": "https://mirrors.edge.kernel.org/linuxmint/stable/", "regex": "href=\"(\\d+\\.\\d+)/\"", "policy": "latest"},
+      "checksums": "https://mirrors.edge.kernel.org/linuxmint/stable/{series}/sha256sum.txt",
+      "pick": "^\\*?linuxmint-(?P<version>\\d+\\.\\d+)-{edition}-64bit\\.iso$",
+      "signature": {"type": "detached", "url": "{checksums}.gpg", "key": "linuxmint.asc"},
+      "download": "https://mirrors.edge.kernel.org/linuxmint/stable/{series}/{file}"
+    },
+    {
+      "id": "fedora-workstation", "name": "Fedora Workstation",
+      "installed": "^Fedora-Workstation-Live-(?P<version>\\d+-[\\d.]+)\\.x86_64\\.iso$",
+      "series": {"index": "https://dl.fedoraproject.org/pub/fedora/linux/releases/", "regex": "href=\"(\\d+)/\"", "policy": "latest"},
+      "checksums_index": {"url": "https://dl.fedoraproject.org/pub/fedora/linux/releases/{series}/Workstation/x86_64/iso/", "regex": "href=\"(Fedora-Workstation-[^\"]+-CHECKSUM)\""},
+      "pick": "^Fedora-Workstation-Live-(?P<version>\\d+-[\\d.]+)\\.x86_64\\.iso$",
+      "signature": {"type": "clearsigned", "key": "fedora.asc"},
+      "download": "https://dl.fedoraproject.org/pub/fedora/linux/releases/{series}/Workstation/x86_64/iso/{file}"
+    },
+    {
+      "id": "fedora-kde", "name": "Fedora KDE Plasma Desktop",
+      "installed": "^Fedora-KDE-Desktop-Live-(?P<version>\\d+-[\\d.]+)\\.x86_64\\.iso$",
+      "series": {"index": "https://dl.fedoraproject.org/pub/fedora/linux/releases/", "regex": "href=\"(\\d+)/\"", "policy": "latest"},
+      "checksums_index": {"url": "https://dl.fedoraproject.org/pub/fedora/linux/releases/{series}/KDE/x86_64/iso/", "regex": "href=\"(Fedora-KDE[^\"]+-CHECKSUM)\""},
+      "pick": "^Fedora-KDE-Desktop-Live-(?P<version>\\d+-[\\d.]+)\\.x86_64\\.iso$",
+      "signature": {"type": "clearsigned", "key": "fedora.asc"},
+      "download": "https://dl.fedoraproject.org/pub/fedora/linux/releases/{series}/KDE/x86_64/iso/{file}"
+    },
+    {
+      "id": "fedora-server", "name": "Fedora Server",
+      "installed": "^Fedora-Server-dvd-x86_64-(?P<version>\\d+-[\\d.]+)\\.iso$",
+      "series": {"index": "https://dl.fedoraproject.org/pub/fedora/linux/releases/", "regex": "href=\"(\\d+)/\"", "policy": "latest"},
+      "checksums_index": {"url": "https://dl.fedoraproject.org/pub/fedora/linux/releases/{series}/Server/x86_64/iso/", "regex": "href=\"(Fedora-Server-[^\"]+-CHECKSUM)\""},
+      "pick": "^Fedora-Server-dvd-x86_64-(?P<version>\\d+-[\\d.]+)\\.iso$",
+      "signature": {"type": "clearsigned", "key": "fedora.asc"},
+      "download": "https://dl.fedoraproject.org/pub/fedora/linux/releases/{series}/Server/x86_64/iso/{file}"
+    },
+    {
+      "id": "fedora-silverblue", "name": "Fedora Silverblue",
+      "installed": "^Fedora-Silverblue-ostree-x86_64-(?P<version>\\d+-[\\d.]+)\\.iso$",
+      "series": {"index": "https://dl.fedoraproject.org/pub/fedora/linux/releases/", "regex": "href=\"(\\d+)/\"", "policy": "latest"},
+      "checksums_index": {"url": "https://dl.fedoraproject.org/pub/fedora/linux/releases/{series}/Silverblue/x86_64/iso/", "regex": "href=\"(Fedora-Silverblue-[^\"]+-CHECKSUM)\""},
+      "pick": "^Fedora-Silverblue-ostree-x86_64-(?P<version>\\d+-[\\d.]+)\\.iso$",
+      "signature": {"type": "clearsigned", "key": "fedora.asc"},
+      "download": "https://dl.fedoraproject.org/pub/fedora/linux/releases/{series}/Silverblue/x86_64/iso/{file}"
+    },
+    {
+      "id": "fedora-kinoite", "name": "Fedora Kinoite",
+      "installed": "^Fedora-Kinoite-ostree-x86_64-(?P<version>\\d+-[\\d.]+)\\.iso$",
+      "series": {"index": "https://dl.fedoraproject.org/pub/fedora/linux/releases/", "regex": "href=\"(\\d+)/\"", "policy": "latest"},
+      "checksums_index": {"url": "https://dl.fedoraproject.org/pub/fedora/linux/releases/{series}/Kinoite/x86_64/iso/", "regex": "href=\"(Fedora-Kinoite-[^\"]+-CHECKSUM)\""},
+      "pick": "^Fedora-Kinoite-ostree-x86_64-(?P<version>\\d+-[\\d.]+)\\.iso$",
+      "signature": {"type": "clearsigned", "key": "fedora.asc"},
+      "download": "https://dl.fedoraproject.org/pub/fedora/linux/releases/{series}/Kinoite/x86_64/iso/{file}"
+    },
+    {
+      "id": "opensuse-tumbleweed-dvd", "name": "openSUSE Tumbleweed (DVD)",
+      "installed": "^openSUSE-Tumbleweed-DVD-x86_64-Snapshot(?P<version>\\d{8})-Media\\.iso$",
+      "checksums": "https://download.opensuse.org/tumbleweed/iso/openSUSE-Tumbleweed-DVD-x86_64-Current.iso.sha256",
+      "pick": "^openSUSE-Tumbleweed-DVD-x86_64-Snapshot(?P<version>\\d{8})-Media\\.iso$",
+      "signature": {"type": "detached", "url": "{checksums}.asc", "key": "opensuse.asc"},
+      "download": "https://download.opensuse.org/tumbleweed/iso/{file}"
+    },
+    {
+      "id": "opensuse-microos-dvd", "name": "openSUSE MicroOS (DVD)",
+      "installed": "^openSUSE-MicroOS-DVD-x86_64-Snapshot(?P<version>\\d{8})-Media\\.iso$",
+      "checksums": "https://download.opensuse.org/tumbleweed/iso/openSUSE-MicroOS-DVD-x86_64-Current.iso.sha256",
+      "pick": "^openSUSE-MicroOS-DVD-x86_64-Snapshot(?P<version>\\d{8})-Media\\.iso$",
+      "signature": {"type": "detached", "url": "{checksums}.asc", "key": "opensuse.asc"},
+      "download": "https://download.opensuse.org/tumbleweed/iso/{file}"
+    }
+  ]
+}

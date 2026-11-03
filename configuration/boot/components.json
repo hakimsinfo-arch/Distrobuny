@@ -1,0 +1,99 @@
+{
+  "comment": "Third-party boot components. Each package is downloaded from the official Ubuntu archive and verified against the pinned SHA-256 before use. Update all entries together and re-run the VM test suite. 'source' names the Ubuntu source packages (name: version) a binary was built from, the one with the code first; 'shipped' marks what goes onto every drive (its source must be offered with each release).",
+  "archive": "http://archive.ubuntu.com/ubuntu/pool/main/",
+  "kernel_release": "7.0.0-38-generic",
+  "packages": {
+    "shim-signed": {
+      "path": "s/shim-signed/shim-signed_1.58+15.8-0ubuntu1_amd64.deb",
+      "sha256": "ba9b5d80e5d886c30664f2bebfb5c2fcce3b9b40f16fc46cba49c19a91c8059c",
+      "license": "BSD-2-Clause (shim); signed by Microsoft UEFI CA",
+      "use": "UEFI first stage (Secure Boot capable): /usr/lib/shim/shimx64.efi.signed.latest, MokManager mmx64.efi",
+      "name": "shim",
+      "shipped": true,
+      "source": {
+        "shim": "15.8-0ubuntu1",
+        "shim-signed": "1.58"
+      }
+    },
+    "grub-efi-amd64-signed": {
+      "path": "g/grub2-signed/grub-efi-amd64-signed_1.202.5+2.12-1ubuntu7.3_amd64.deb",
+      "sha256": "8bd5cd99c3af82aab23af0f15f54c91799f343416412e122df661ef36a44a511",
+      "license": "GPL-3.0-or-later; signed by Canonical",
+      "use": "UEFI second stage: loads the Distro Buny runtime kernel",
+      "name": "GRUB",
+      "shipped": true,
+      "source": {
+        "grub2": "2.12-1ubuntu7.3",
+        "grub2-signed": "1.202.5"
+      }
+    },
+    "linux-image": {
+      "path": "l/linux-signed-hwe-7.0/linux-image-7.0.0-38-generic_7.0.0-38.38~24.04.4_amd64.deb",
+      "sha256": "1791405b126cb2ef8b969dc6706292a02c12da9f581bb3f8fac2d1272a419fd4",
+      "license": "GPL-2.0-only; signed by Canonical",
+      "use": "runtime kernel (vmlinuz)",
+      "name": "Linux kernel",
+      "shipped": true,
+      "source": {
+        "linux-hwe-7.0": "7.0.0-38.38~24.04.4",
+        "linux-signed-hwe-7.0": "7.0.0-38.38~24.04.4"
+      }
+    },
+    "linux-modules": {
+      "path": "l/linux-hwe-7.0/linux-modules-7.0.0-38-generic_7.0.0-38.38~24.04.4_amd64.deb",
+      "sha256": "99536f44ce1802e63ed79a90d386bb1025ec12bf7a2f5af43287dbb4af247202",
+      "license": "GPL-2.0-only",
+      "use": "runtime kernel modules (storage, input, file systems)",
+      "name": "Linux kernel modules",
+      "shipped": true,
+      "source": {
+        "linux-hwe-7.0": "7.0.0-38.38~24.04.4"
+      }
+    },
+    "grub-pc-bin": {
+      "path": "g/grub2/grub-pc-bin_2.12-1ubuntu7.3_amd64.deb",
+      "sha256": "698d80bc51c0c593fbc829758365a0e4bce96819e2c8c754ae77dfe39b0388df",
+      "license": "GPL-3.0-or-later",
+      "use": "legacy BIOS boot (optional): boot.img and core.img modules",
+      "name": "GRUB (BIOS)",
+      "shipped": false,
+      "source": {
+        "grub2": "2.12-1ubuntu7.3"
+      }
+    },
+    "exfatprogs": {
+      "archive": "http://archive.ubuntu.com/ubuntu/pool/universe/",
+      "path": "e/exfatprogs/exfatprogs_1.2.2-1build1_amd64.deb",
+      "sha256": "64ef15897c8b80b92670fd14edd47733b90ea12c9fa836694158c04e6f60bc0d",
+      "license": "GPL-2.0-or-later",
+      "use": "tests only: reference fsck.exfat for checking generated data partitions (not shipped)",
+      "name": "exfatprogs",
+      "shipped": false,
+      "source": {
+        "exfatprogs": "1.2.2-1build1"
+      }
+    },
+    "mtools": {
+      "path": "m/mtools/mtools_4.0.43-1build1_amd64.deb",
+      "sha256": "deb50411c17b001c2400dd8a0146f39d12070a2fe5e92d734b1c6d0e73119262",
+      "license": "GPL-3.0-or-later",
+      "use": "tests only: independent FAT reader for inspecting generated ESPs (not shipped)",
+      "name": "mtools",
+      "shipped": false,
+      "source": {
+        "mtools": "4.0.43-1build1"
+      }
+    },
+    "busybox-static": {
+      "path": "b/busybox/busybox-static_1.36.1-6ubuntu3.1_amd64.deb",
+      "sha256": "944b2728f53ceb3916cec2c962873c9951e612408099601751db2a0a5d81e0ed",
+      "license": "GPL-2.0-only",
+      "use": "runtime emergency shell and diagnostics (static BusyBox)",
+      "name": "BusyBox",
+      "shipped": true,
+      "source": {
+        "busybox": "1:1.36.1-6ubuntu3.1"
+      }
+    }
+  }
+}

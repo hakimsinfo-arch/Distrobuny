@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Distro Buny @VERSION@ — How it was made</title>
+<style>
+  body { font-family: "DejaVu Sans", "Liberation Sans", Arial, sans-serif; font-size: 10.5pt; color: #1d2b1d; line-height: 1.45; }
+  h1 { font-size: 22pt; color: #3c7a2a; margin-bottom: 2pt; }
+  h2 { font-size: 14pt; color: #3c7a2a; margin-top: 16pt; border-bottom: 1px solid #b9d7a8; }
+  .sub { color: #5a6b5a; font-size: 11pt; margin-top: 0; }
+  table { border-collapse: collapse; width: 100%; margin: 6pt 0; }
+  th, td { border: 1px solid #c9dcc0; padding: 4pt 6pt; vertical-align: top; text-align: left; }
+  th { background: #eaf4e3; }
+  code { font-family: "DejaVu Sans Mono", monospace; font-size: 9.5pt; background: #f2f6ef; }
+  pre { font-family: "DejaVu Sans Mono", monospace; font-size: 9pt; background: #f2f6ef; padding: 6pt; }
+</style>
+</head>
+<body>
+
+<h1>Distro Buny @VERSION@</h1>
+<p class="sub">How it was made</p>
+
+<p>Distro Buny is an original multiboot system: its menu, its way of starting
+distributions and its disk-image tools were written for this product. It uses
+standard, signed building blocks (shim, GRUB, a Linux kernel) but no existing
+multiboot product. This document gives an overview; the source archive's
+<code>documentation/</code> folder has the full technical details.</p>
+
+<h2>1. The idea</h2>
+<p>A multiboot stick should be as simple as a folder of ISO files: copy images
+on from any computer, start from the stick, pick one. The hard part is that
+every distribution expects to start from its own DVD and looks for that DVD in
+its own way. Distro Buny solves this by starting a small Linux system of its own
+first, and from there handing the computer over to the chosen distribution,
+together with a virtual DVD made from its ISO file.</p>
+
+<h2>2. The stick</h2>
+<pre>
+  BUNY-EFI     FAT32, 512 MiB   boot chain, Distro Buny runtime, settings
+  DISTROBUNY   exFAT, the rest  your ISO files (readable and writable everywhere)
+</pre>
+<p>exFAT was chosen because Windows, macOS and Linux can all write it and it has no
+4 GB file-size limit. The data partition sits at the end of the stick, so the menu
+can grow it to the stick's full size after the image was written; that step only
+rewrites bookkeeping and is designed to survive a power cut.</p>
+
+<h2>3. From power-on to a running distribution</h2>
+<ol>
+  <li><b>Firmware → shim → GRUB.</b> Microsoft-signed shim and Canonical-signed GRUB, so the stick
+      starts whether Secure Boot is on or off.</li>
+  <li><b>The Distro Buny runtime.</b> Canonical's signed Linux kernel with Distro Buny's own small
+      system: <code>buny-init</code> (finds the stick, loads drivers, does everything that needs
+      privileges) and <code>buny-ui</code> (the graphical menu, running without privileges because it
+      reads untrusted ISO files).</li>
+  <li><b>Reading the ISO files.</b> The menu reads each image's own boot menu (GRUB, systemd-boot,
+      isolinux), recognises the distribution family and its version, and checks the kernel's signature.</li>
+  <li><b>The virtual DVD.</b> The ISO file's exact position on the stick is mapped, and a small
+      Distro Buny program placed in front of the distribution's own startup code presents the file
+      as a read-only disk with the ISO's name and ID.</li>
+  <li><b>Hand-over.</b> The runtime loads the distribution's kernel with <code>kexec</code> and jumps
+      into it. From then on the distribution runs exactly as from its own DVD.</li>
+</ol>
+
+<h2>4. Supporting many distributions</h2>
+<p>Distro Buny recognises a system by <i>how it starts</i>, not by its name, through
+"adapters", one per family of startup code:</p>
+<table>
+  <tr><th>Method</th><th>Covers, for example</th></tr>
+  <tr><td>casper</td><td>Ubuntu and all flavours, Linux Mint, Pop!_OS, Zorin OS</td></tr>
+  <tr><td>debian-live</td><td>Debian live, Kali Linux, Parrot OS (and Tails, Clonezilla, GParted Live*)</td></tr>
+  <tr><td>archiso, miso</td><td>Arch Linux, EndeavourOS, CachyOS, Omarchy, BlackArch, Manjaro (and SystemRescue*, Garuda*)</td></tr>
+  <tr><td>dracut-live, anaconda</td><td>Fedora live and installers, Bazzite, Nobara, Void, Gentoo, CentOS Stream, AlmaLinux (and Rocky Linux*, RHEL*)</td></tr>
+  <tr><td>debian-installer</td><td>Debian netinst and DVD installers (with the loop driver from the image itself)</td></tr>
+  <tr><td>antiX live-init</td><td>MX Linux, antiX</td></tr>
+  <tr><td>kiwi, linuxrc</td><td>openSUSE Leap, Tumbleweed, MicroOS, Leap Micro</td></tr>
+  <tr><td>nixos, guix</td><td>NixOS, GNU Guix System</td></tr>
+  <tr><td>Slackware</td><td>the Slackware installer (one manual step: the source device)</td></tr>
+  <tr><td>best effort</td><td>any other 64-bit Linux image, such as Alpine Linux: started with its own settings and the virtual DVD, after asking</td></tr>
+</table>
+<p>Names marked * were not in the test collection; they use the same startup method as tested images.</p>
+<p>Because the recognition works on the boot method, new releases and derivatives
+of these families work without changes. A 64-bit Linux image of a family Distro
+Buny does not know is still offered ("best effort") and started after a confirmation.</p>
+
+<h2>5. Safety and stability</h2>
+<ul>
+  <li>The menu runs without privileges; the privileged part accepts only a few checked requests.</li>
+  <li>ISO files and the data partition are only read while a system runs; the virtual DVD is read-only.</li>
+  <li>Distro Buny never writes to the computer's own disks, and it changes its own stick only when asked
+      (and only the stick the computer was started from).</li>
+  <li>Images that erase a disk by themselves (self-installers, unattended installers) are detected and
+      need an explicit confirmation, with <i>Cancel</i> as the default.</li>
+  <li>Distro Buny never bypasses Secure Boot. With Secure Boot on, only kernels signed by keys its
+      Ubuntu-signed runtime trusts can be started (in practice the Ubuntu family), and the menu says so
+      before you try; with Secure Boot off, every supported system starts.</li>
+  <li>Growing the data partition writes in a crash-safe order and finishes by itself after a power cut.</li>
+  <li>The ISO and boot-menu readers were run against thousands of deliberately corrupted images under
+      memory-error detectors, without a single crash.</li>
+</ul>
+
+<h2>6. Tools behind the product</h2>
+<table>
+  <tr><th>Part</th><th>What it does</th><th>Written in</th></tr>
+  <tr><td>Runtime (init, menu, pre-init, file-system and ISO readers, adapters)</td><td>everything on the stick</td><td>C</td></tr>
+  <tr><td><code>buny-build</code></td><td>builds the runtime, the boot partition, the disk images and the release,
+      and verifies the release; its own GPT, FAT32 and exFAT writers produce bit-identical images from the
+      same inputs</td><td>Python</td></tr>
+  <tr><td><code>buny-install</code>, <code>buny-update</code></td><td>prepare a stick from Linux; update ISO files with signature checks</td><td>Python</td></tr>
+  <tr><td><code>buny-vm</code>, <code>buny-test-matrix</code></td><td>start images in virtual machines and test every distribution automatically</td><td>Python</td></tr>
+</table>
+
+<h2>7. How it was tested</h2>
+<ul>
+  <li>Every boot was tested in QEMU virtual machines with UEFI firmware (OVMF), with and without Secure Boot,
+      the stick attached as a USB drive, through the complete chain from the firmware to the distribution.</li>
+  <li>54 real distribution images, downloaded from the projects' official servers and checked against
+      their published checksums or signatures: <b>all 54 start</b> (the Debian installer since the fix of 28 October 2026).
+      With Secure Boot on, 15 start (all signed by Canonical) and the other 38 are correctly refused.</li>
+  <li>Automated tests: C unit tests (118 checks), image-writer, release and installer tests (51), menu tests
+      driven by keyboard and mouse (25), and virtual-machine tests of the starter image (growing the stick,
+      power cuts), the menu, Secure Boot and fragmented files.</li>
+  <li>Every disk image and every grown stick is checked with the reference tools <code>fsck.exfat</code> and
+      <code>fsck.fat</code>; growing the stick was tested with a simulated power cut after every single write.</li>
+  <li>The release folder is checked by the build tool itself: every file and every checksum quoted in the
+      documents must match.</li>
+  <li>Not yet done: tests on a wide range of physical PCs and USB sticks.</li>
+</ul>
+
+<h2>8. Licences</h2>
+<p>Distro Buny's own code is free software under the GNU General Public License, version 3 or later,
+copyright the Distro Buny authors. The image also contains free software by others (shim, GRUB, the
+Linux kernel, BusyBox, the GNU C Library, the Inter typeface), each under its own licence. The folder
+<i>Licenses and source code</i> next to this document lists all components and contains their complete
+source code. Distribution names and logos shown in the menu are trademarks of their owners and only
+identify your own ISO files.</p>
+
+<p class="sub">Distro Buny @VERSION@ · image SHA-256 @IMAGE_SHA@</p>
+
+</body>
+</html>

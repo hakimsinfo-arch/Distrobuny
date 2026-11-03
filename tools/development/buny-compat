@@ -1,0 +1,117 @@
+#!/usr/bin/env python3
+"""buny-compat — turn lab test runs into the boot menu's compatibility records.
+
+  buny-compat RUN_DIR [RUN_DIR...] [--out FILE] [--markdown FILE]
+
+Reads results.json from each run of buny-test-matrix (oldest first; a later
+run replaces an earlier result for the same image) and writes
+configuration/distributions/compatibility.json.  The boot menu shows
+"Verified" or "Known issue" only for an image with exactly the same volume
+label and size as the one tested, so a renamed copy of a tested image still
+matches and a different release never does.
+
+Only PASS and FAIL verdicts become records; BLOCKED, ERROR and NOT TESTED
+mean nothing was learned about the image itself.  --markdown also writes a
+table of every result (including BLOCKED) for the documentation.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+import time
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_OUT = ROOT / "configuration" / "distributions" / "compatibility.json"
+
+
+def evidence(r: dict) -> str:
+    t = r.get("timings", {})
+    secs = t.get("userspace")
+    how = "via the virtual medium" if "virtual medium" in r.get("reason", "") else ""
+    if r["verdict"] == "PASS":
+        s = "reached the distribution's user space"
+        if secs:
+            s += f" {secs:.0f} s after power-on"
+        s = f"{s} {how}".strip()
+    else:
+        s = r.get("reason", "failed")
+    return s + (" (Secure Boot on)" if r.get("secure_boot") else "") + ", QEMU/OVMF"
+
+
+def cell(r: dict | None) -> str:
+    if not r:
+        return "not tested"
+    v = r["verdict"]
+    if v == "PASS":
+        t = r.get("timings", {}).get("userspace")
+        return f"**PASS** ({t:.0f} s)" if t else "**PASS**"
+    if v == "FAIL":
+        why = r.get("reason", "")
+        if "not signed" in why:
+            return "refused: unsigned kernel"
+        if "not trusted" in why:
+            return "refused: kernel signed by an untrusted CA"
+        return "FAIL: " + why.replace("|", "/")[:200]
+    return f"{v.lower()}: " + r.get("reason", "").replace("|", "/")[:200]
+
+
+def write_markdown(path: Path, table: dict) -> None:
+    paths = sorted({p for p, _ in table})
+    lines = ["| Image | Adapter | UEFI | UEFI + Secure Boot |", "| --- | --- | --- | --- |"]
+    for p in paths:
+        plain, sb = table.get((p, False)), table.get((p, True))
+        any_r = plain or sb
+        name = any_r.get("name") or Path(p).name
+        lines.append(f"| {name}<br>`{p}` | {any_r.get('adapter') or '—'} | {cell(plain)} | {cell(sb)} |")
+    path.write_text("\n".join(lines) + "\n")
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("runs", nargs="+", type=Path)
+    ap.add_argument("--out", type=Path, default=DEFAULT_OUT)
+    ap.add_argument("--markdown", type=Path, help="also write a Markdown table of all results")
+    args = ap.parse_args()
+    records: dict[tuple, dict] = {}
+    table: dict[tuple, dict] = {}
+    for run in args.runs:
+        f = run / "results.json"
+        if not f.exists():
+            print(f"buny-compat: {f} not found", file=sys.stderr)
+            return 1
+        for r in json.loads(f.read_text()):
+            table[(r["path"], bool(r.get("secure_boot")))] = dict(r, run=str(run))
+            if r.get("verdict") not in ("PASS", "FAIL") or not r.get("label") or not r.get("size"):
+                continue
+            if r["verdict"] == "FAIL" and any(s in r.get("reason", "") for s in ("not signed", "not trusted")):
+                # a Secure Boot trust refusal says nothing about the image: the menu
+                # predicts it from the computer's own keys instead
+                records.pop((r["label"], r["size"], bool(r.get("secure_boot"))), None)
+                continue
+            key = (r["label"], r["size"], bool(r.get("secure_boot")))
+            records[key] = {
+                "label": r["label"],
+                "size": r["size"],
+                "name": r.get("name", ""),
+                "path": r["path"],
+                "result": r["verdict"].lower(),
+                "secure_boot": bool(r.get("secure_boot")),
+                "date": (r.get("started") or time.strftime("%Y-%m-%d"))[:10],
+                "evidence": evidence(r),
+                "run": str(run.resolve().relative_to(ROOT) if run.resolve().is_relative_to(ROOT) else run),
+            }
+    # the menu takes the first record matching an image: list plain-firmware results first
+    images = sorted(records.values(), key=lambda x: (x["secure_boot"], x["path"]))
+    out = {"format": "distrobuny-compatibility", "version": 1, "generated": time.strftime("%Y-%m-%d"), "images": images}
+    args.out.write_text(json.dumps(out, indent=2, ensure_ascii=False) + "\n")
+    if args.markdown:
+        write_markdown(args.markdown, table)
+    passed = sum(1 for x in images if x["result"] == "pass")
+    print(f"wrote {args.out}: {len(images)} records ({passed} pass, {len(images) - passed} fail)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

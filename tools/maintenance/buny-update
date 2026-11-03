@@ -1,0 +1,164 @@
+#!/usr/bin/env python3
+"""buny-update — keep the ISO images on a Distro Buny drive up to date.
+
+  buny-update [--root DIR] status            installed images and their update sources
+  buny-update [--root DIR] check             look for newer releases (verified metadata only)
+  buny-update [--root DIR] update [PATH...]  download, verify and (after approval) install updates
+  buny-update sources                        list the trusted update sources
+
+--root is the mounted Distro Buny data partition (auto-detected when it is
+mounted), or any folder laid out like it.  Updates are never installed
+without approval (interactive prompt, or --yes).  The old image is removed
+only after the verified new image is in place; --keep-old keeps it.
+"""
+from __future__ import annotations
+
+import argparse
+import sys
+import time
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "source" / "python"))
+
+from distrobuny.updater import engine, http, verify  # noqa: E402
+from distrobuny.util import human_size  # noqa: E402
+
+
+def bar(label: str):
+    state = {"t": 0.0}
+
+    def cb(done, total):
+        now = time.time()
+        if now - state["t"] < 0.5 and (not total or done < total):
+            return
+        state["t"] = now
+        if total:
+            pct = done * 100 // total
+            fill = pct // 4
+            print(f"\r  {label} [{'#' * fill}{'.' * (25 - fill)}] {pct:3d}% {human_size(done)}/{human_size(total)}",
+                  end="", flush=True)
+        else:
+            print(f"\r  {label} {human_size(done)}", end="", flush=True)
+
+    return cb
+
+
+def resolve_root(arg: Path | None) -> Path:
+    if arg:
+        if not arg.is_dir():
+            sys.exit(f"buny-update: {arg} is not a directory")
+        return arg
+    found = engine.find_data_root()
+    if not found:
+        sys.exit("buny-update: no mounted Distro Buny drive found; pass --root DIR")
+    return found
+
+
+def cmd_sources() -> int:
+    for s in engine.load_sources():
+        sig = s.get("signature") or {}
+        print(f"{s.id:26} {s.name:28} {sig.get('type', 'none'):15} key={sig.get('key', '-')}")
+    return 0
+
+
+def cmd_status(root: Path) -> int:
+    items = engine.inventory(root, engine.load_sources())
+    for i in items:
+        src = i.source.id if i.source else "no trusted source configured"
+        print(f"{i.path:72} {i.version or '?':18} {src}")
+    managed = sum(1 for i in items if i.source)
+    print(f"\n{len(items)} image(s); {managed} with a trusted update source")
+    return 0
+
+
+def cmd_check(root: Path, paths: list[str]) -> tuple[int, list]:
+    items = engine.inventory(root, engine.load_sources())
+    if paths:
+        items = [i for i in items if i.path in paths or i.file in paths]
+    work = engine.metadata_dir(root)
+    found = []
+    for i in items:
+        if not i.source:
+            print(f"  -    {i.path}: no trusted update source configured")
+            continue
+        try:
+            c = engine.check(i, work)
+        except (engine.UpdateError, http.DownloadError, verify.VerificationError) as exc:
+            print(f"  !    {i.path}: check failed: {exc}")
+            continue
+        if c:
+            size = human_size(c.size) if c.size else "size unknown"
+            print(f"  NEW  {i.path}: {i.version} -> {c.version} ({c.file}, {size}; metadata signed by {c.signer})")
+            found.append((i, c))
+        else:
+            print(f"  ok   {i.path}: {i.version} is current")
+    return 0, found
+
+
+def confirm(question: str, assume_yes: bool) -> bool:
+    if assume_yes:
+        return True
+    if not sys.stdin.isatty():
+        print("  (no terminal to ask for approval; rerun with --yes to approve)")
+        return False
+    return input(f"{question} [y/N] ").strip().lower() in ("y", "yes")
+
+
+def cmd_update(root: Path, paths: list[str], assume_yes: bool, keep_old: bool) -> int:
+    _, found = cmd_check(root, paths)
+    if not found:
+        print("Nothing to update.")
+        return 0
+    failures = 0
+    for inst, cand in found:
+        print(f"\n{inst.path}: {inst.version} -> {cand.version}")
+        if not confirm(f"Download {cand.file} ({human_size(cand.size) if cand.size else '?'})?", assume_yes):
+            continue
+        try:
+            verified = engine.download_and_verify(root, cand, bar("download"), bar("verify  "))
+            print(f"\n  verified: {cand.algo.upper()} matches; signed by {cand.signer}")
+        except (engine.UpdateError, http.DownloadError, verify.VerificationError) as exc:
+            print(f"\n  FAILED: {exc}\n  The installed image was not changed.")
+            failures += 1
+            continue
+        action = "keep the old image" if keep_old else f"remove {inst.file}"
+        if not confirm(f"Install {cand.file} and {action}?", assume_yes):
+            print(f"  left verified download in {verified}")
+            continue
+        target = engine.apply(root, inst, cand, verified, remove_old=not keep_old)
+        print(f"  installed {target}")
+    return 1 if failures else 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(prog="buny-update", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--root", type=Path)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("sources")
+    sub.add_parser("status")
+    p = sub.add_parser("check")
+    p.add_argument("paths", nargs="*")
+    p = sub.add_parser("update")
+    p.add_argument("paths", nargs="*")
+    p.add_argument("--yes", action="store_true", help="approve downloads and replacement without asking")
+    p.add_argument("--keep-old", action="store_true", help="keep the previous image next to the new one")
+    args = ap.parse_args()
+    try:
+        if args.cmd == "sources":
+            return cmd_sources()
+        root = resolve_root(args.root)
+        if args.cmd == "status":
+            return cmd_status(root)
+        if args.cmd == "check":
+            return cmd_check(root, args.paths)[0]
+        if args.cmd == "update":
+            return cmd_update(root, args.paths, args.yes, args.keep_old)
+    except engine.UpdateError as exc:
+        print(f"buny-update: {exc}", file=sys.stderr)
+        return 1
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,75 @@
+#!/usr/bin/env python3
+"""buny-vm — try a Distro Buny image in a virtual machine window.
+
+  buny-vm [--image IMG] [--secure-boot] [--memory MiB] [--stick-gib GiB]
+
+Starts QEMU with UEFI firmware (OVMF) and the image attached as a USB stick,
+exactly like the automated tests, but in a window you can use.  The mouse
+works without grabbing (virtual tablet); press Ctrl+Alt+G to release the
+keyboard if QEMU grabbed it.  Close the window to stop the VM.
+
+Your image is never modified: the VM writes to a throw-away overlay that is
+deleted when the VM stops.  Default image: the full image if it exists,
+otherwise the dev image.
+"""
+from __future__ import annotations
+
+import argparse
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "source" / "python"))
+
+from distrobuny.qemu.vm import VM, VMConfig  # noqa: E402
+
+IMAGES = ROOT / "output" / "images"
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(prog="buny-vm", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--image", type=Path, help="disk image (default: the full image, else the dev image)")
+    ap.add_argument("--secure-boot", action="store_true", help="UEFI with Secure Boot enforced (Microsoft keys)")
+    ap.add_argument("--memory", type=int, default=4096, help="RAM in MiB (default 4096)")
+    ap.add_argument("--cpus", type=int, default=4)
+    ap.add_argument("--stick-gib", type=float, help="attach a bigger USB stick with the image at its start, "
+                                                    "as balenaEtcher, Rufus or dd leave it")
+    ap.add_argument("--display", default="gtk,zoom-to-fit=on", help=argparse.SUPPRESS)  # tests: none
+    ap.add_argument("--lab", action="store_true", help=argparse.SUPPRESS)                # tests: serial events
+    args = ap.parse_args()
+
+    image = args.image
+    if image is None:
+        version = (ROOT / "VERSION").read_text().strip()
+        for name in (f"distrobuny-{version}-full.img", f"distrobuny-{version}-dev.img"):
+            if (IMAGES / name).exists():
+                image = IMAGES / name
+                break
+    if image is None or not image.exists():
+        sys.exit("buny-vm: no image found; build one with: tools/build/buny-build image --profile dev")
+    if not shutil.which("qemu-system-x86_64"):
+        sys.exit("buny-vm: QEMU is not installed (sudo apt install qemu-system-x86 ovmf)")
+
+    work = ROOT / "build" / "vm" / "interactive"
+    shutil.rmtree(work, ignore_errors=True)
+    cfg = VMConfig(image=image, workdir=work, memory_mb=args.memory, cpus=args.cpus, secure_boot=args.secure_boot,
+                   name="Distro Buny", lab_options="buny.lab=1" if args.lab else "",
+                   disk_bytes=int(args.stick_gib * (1 << 30)) // 512 * 512 if args.stick_gib else None)
+    vm = VM(cfg)
+    cmd = vm.command_line()
+    cmd[cmd.index("-display") + 1] = args.display
+    print(f"starting {image.name} {'with Secure Boot ' if args.secure_boot else ''}in a VM "
+          f"(changes are discarded; serial log: {work / 'serial.log'})")
+    try:
+        return subprocess.run(cmd).returncode
+    except KeyboardInterrupt:
+        return 130
+    finally:
+        (work / "overlay.qcow2").unlink(missing_ok=True)
+        shutil.rmtree(vm.qmp_path.parent, ignore_errors=True)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
